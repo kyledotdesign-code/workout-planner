@@ -4,12 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Workout Planner</title>
-  <meta name="description" content="Interactive weekly workout planner with timers, set tracking, and progress saved to your browser.">
+  <meta name="description" content="Interactive weekly workout planner with set tracking, videos/GIFs, and progress saved to your browser.">
   <style>
-    :root{
-      --bg:#0b0d10;--panel:#13161b;--muted:#8a93a4;--text:#e9edf5;--pri:#6ea8fe;--acc:#7cf2c6;--warn:#ffb86b;--danger:#ff6b6b;
-      --card:#171b22;--chip:#212734;--ring:rgba(110,168,254,.35);--shadow:0 10px 30px rgba(0,0,0,.45)
-    }
+    :root{ --bg:#0b0d10;--panel:#13161b;--muted:#8a93a4;--text:#e9edf5;--pri:#6ea8fe;--acc:#7cf2c6;--warn:#ffb86b;--danger:#ff6b6b; --card:#171b22;--chip:#212734;--ring:rgba(110,168,254,.35);--shadow:0 10px 30px rgba(0,0,0,.45) }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;background:linear-gradient(180deg,#0b0d10, #0e1116 40%, #0b0d10);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
@@ -58,10 +55,8 @@
     .two{grid-template-columns:1fr 1fr}
     @media (max-width:680px){.two{grid-template-columns:1fr}}
 
-    .timer{display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums}
-    .timer b{font-size:20px}
-    .gif{display:flex;gap:10px;align-items:center}
-    .gif img{width:76px;height:76px;border-radius:10px;object-fit:cover;border:1px solid #273142}
+    .demo{display:flex;gap:10px;align-items:center;margin-top:8px}
+    .demo img{width:90px;height:68px;border-radius:10px;object-fit:cover;border:1px solid #273142}
 
     .footer{margin-top:20px;color:var(--muted);font-size:12px}
     .notice{padding:12px;border:1px dashed #2b364a;border-radius:12px;background:#0e141c;margin-top:10px}
@@ -119,7 +114,7 @@
             <textarea id="notes" placeholder="Form cues, wins, next‑time tweaks…"></textarea>
           </div>
           <div class="notice">
-            <b>Tip:</b> Click a set to mark it done. Use the timer on time‑based moves (e.g., Plank). Progress auto‑saves to your browser (localStorage). Press <span class="kbd">/</span> to quick‑search moves.
+            <b>Tip:</b> Click a set to mark it done. Built‑in guide + video for each exercise; paste a GIF or YouTube link to override. Progress auto‑saves (localStorage). Press <span class="kbd">/</span> to quick‑search moves. No timers.
           </div>
           <div id="searchWrap">
             <label class="muted">Quick search</label>
@@ -129,7 +124,7 @@
       </aside>
     </main>
 
-    <p class="footer">Built for GitHub Pages. Single file, no build tools. Copy this file into a repo and enable Pages. — v1.0</p>
+    <p class="footer">Built for GitHub Pages. Single file, no build tools. Copy this file into a repo and enable Pages. — v1.1</p>
   </div>
 
   <template id="exerciseTmpl">
@@ -141,9 +136,12 @@
           <span class="chip ex-type"></span>
         </div>
       </div>
-      <div class="gif" style="display:none">
-        <img alt="Exercise demo GIF">
-        <a class="gif-link" target="_blank" rel="noopener">Open GIF</a>
+      <div class="demo">
+        <img alt="Demo thumbnail" class="demo-thumb" />
+        <div class="row" style="flex:1">
+          <a class="btn-ghost ex-guide" target="_blank" rel="noopener">Open Guide</a>
+          <a class="btn-pri ex-video" target="_blank" rel="noopener">Watch Video</a>
+        </div>
       </div>
       <div class="sets"></div>
       <div class="grid two" style="margin-top:10px">
@@ -158,13 +156,8 @@
       </div>
       <div style="margin-top:10px" class="grid two">
         <div>
-          <label class="muted">GIF URL (optional)</label>
-          <input type="text" class="ex-gifurl" placeholder="Paste a GIF/MP4 link">
-        </div>
-        <div class="timer" data-seconds="0">
-          <button class="btn-ghost t-start">Start</button>
-          <button class="btn-ghost t-stop">Stop</button>
-          <b class="t-readout">00:00</b>
+          <label class="muted">Custom GIF/Video URL (optional)</label>
+          <input type="text" class="ex-gifurl" placeholder="Paste a GIF image URL or a YouTube link">
         </div>
       </div>
     </div>
@@ -227,20 +220,40 @@
     ]
   };
 
+  // Built-in demo links (guide + video) by exercise name
+  const DEMOS = {
+    "Dumbbell Bench Press": {guide:"https://musclewiki.com/exercise/dumbbell-bench-press", video:"https://www.youtube.com/watch?v=VmB1G1K7v94"},
+    "Goblet Squat (Dumbbell Squat)": {guide:"https://musclewiki.com/exercise/dumbbell-goblet-squat", video:"https://www.youtube.com/watch?v=yGswPtbSlro"},
+    "One‑Arm Dumbbell Row": {guide:"https://musclewiki.com/exercise/dumbbell-single-arm-row", video:"https://www.youtube.com/results?search_query=one+arm+dumbbell+row+proper+form"},
+    "Dumbbell Shoulder Press": {guide:"https://musclewiki.com/exercise/dumbbell-overhead-press", video:"https://www.youtube.com/results?search_query=dumbbell+shoulder+press+proper+form"},
+    "Plank": {guide:"https://commons.wikimedia.org/wiki/File:Plank_exercise.svg", video:"https://www.youtube.com/watch?v=pSHjTRCQxIw"},
+    "Cardio (Treadmill/Elliptical)": {guide:"https://www.youtube.com/results?search_query=elliptical+workout+tips", video:"https://www.youtube.com/results?search_query=treadmill+incline+walk+workout"},
+    "Bird‑Dog": {guide:"https://www.youtube.com/results?search_query=bird+dog+exercise+form", video:"https://www.youtube.com/watch?v=-LRjkbEy-qU"},
+    "Dead Bug": {guide:"https://www.youtube.com/results?search_query=dead+bug+exercise+form", video:"https://www.youtube.com/results?search_query=dead+bug+exercise+proper+form"},
+    "Glute Bridge": {guide:"https://www.youtube.com/results?search_query=glute+bridge+exercise+form", video:"https://www.youtube.com/results?search_query=glute+bridge+proper+form"},
+    "Dumbbell Pullover": {guide:"https://www.youtube.com/results?search_query=dumbbell+pullover+proper+form", video:"https://www.youtube.com/results?search_query=dumbbell+pullover+how+to"},
+    "Dumbbell Rear Delt Fly": {guide:"https://www.youtube.com/results?search_query=dumbbell+rear+delt+fly+proper+form", video:"https://www.youtube.com/results?search_query=rear+delt+fly+dumbbells+form"},
+    "Dumbbell Bicep Curl": {guide:"https://www.youtube.com/results?search_query=dumbbell+bicep+curl+proper+form", video:"https://www.youtube.com/results?search_query=dumbbell+bicep+curl+how+to"},
+    "Dumbbell Goblet Squat": {guide:"https://musclewiki.com/exercise/dumbbell-goblet-squat", video:"https://www.youtube.com/watch?v=yGswPtbSlro"},
+    "Dumbbell Romanian Deadlift (RDL)": {guide:"https://www.youtube.com/results?search_query=dumbbell+romanian+deadlift+proper+form", video:"https://www.youtube.com/results?search_query=rdl+dumbbells+form"},
+    "Optional: Dumbbell Reverse Lunge": {guide:"https://www.youtube.com/results?search_query=dumbbell+reverse+lunge+proper+form", video:"https://www.youtube.com/results?search_query=reverse+lunge+dumbbells+form"},
+    "Calf Raises": {guide:"https://www.youtube.com/results?search_query=standing+calf+raise+dumbbells+form", video:"https://www.youtube.com/results?search_query=calf+raise+with+dumbbells+how+to"},
+    "Russian Twist": {guide:"https://www.youtube.com/results?search_query=russian+twist+proper+form", video:"https://www.youtube.com/results?search_query=russian+twist+how+to"},
+    "Incline Dumbbell Bench Press": {guide:"https://musclewiki.com/exercise/dumbbell-incline-bench-press", video:"https://www.youtube.com/results?search_query=dumbbell+incline+bench+press+proper+form"},
+    "Dumbbell Step‑Up": {guide:"https://www.youtube.com/results?search_query=dumbbell+step+up+proper+form", video:"https://www.youtube.com/results?search_query=dumbbell+step+up+how+to"},
+    "Dumbbell Thruster": {guide:"https://www.youtube.com/results?search_query=dumbbell+thruster+proper+form", video:"https://www.youtube.com/results?search_query=dumbbell+thruster+how+to"},
+    "Dumbbell Woodchop": {guide:"https://www.youtube.com/results?search_query=dumbbell+woodchop+proper+form", video:"https://www.youtube.com/results?search_query=dumbbell+woodchop+how+to"}
+  };
+
   // ------ STORAGE ------
-  const KEY = 'workout-progress-v1';
-  const loadState = ()=>{
-    try{ return JSON.parse(localStorage.getItem(KEY)) || { days:{} } } catch{ return {days:{}} }
-  }
-  const saveState = (s)=>{ localStorage.setItem(KEY, JSON.stringify(s)) }
+  const KEY = 'workout-progress-v1-1';
+  const loadState = ()=>{ try{ return JSON.parse(localStorage.getItem(KEY)) || { days:{} } } catch{ return {days:{}} } };
+  const saveState = (s)=>{ localStorage.setItem(KEY, JSON.stringify(s)) };
   let STATE = loadState();
 
   // ------ UTIL ------
   const el = (sel, root=document)=>root.querySelector(sel);
   const els = (sel, root=document)=>[...root.querySelectorAll(sel)];
-  const fmtTime = (sec)=>{
-    sec=Math.max(0,sec|0); let m = Math.floor(sec/60), s = sec%60; return String(m).padStart(2,'0')+":"+String(s).padStart(2,'0')
-  }
 
   // ------ UI INIT ------
   const tabs = el('#dayTabs');
@@ -250,16 +263,9 @@
     tabs.appendChild(b);
   });
 
-  let currentIndex = 0, timers = new Map();
-  function selectDay(i){
-    currentIndex = i; els('.tab', tabs).forEach((t,idx)=>t.classList.toggle('active', idx===i));
-    renderDay(PLAN.days[i]);
-  }
-
-  function ensureDayState(dayId){
-    STATE.days[dayId] = STATE.days[dayId] || { setsDone:{}, loads:{}, results:{}, gif:{}, rpe:null, mood:'', notes:'' };
-    return STATE.days[dayId]
-  }
+  let currentIndex = 0;
+  function selectDay(i){ currentIndex = i; els('.tab', tabs).forEach((t,idx)=>t.classList.toggle('active', idx===i)); renderDay(PLAN.days[i]); }
+  function ensureDayState(dayId){ STATE.days[dayId] = STATE.days[dayId] || { setsDone:{}, loads:{}, results:{}, gif:{}, rpe:null, mood:'', notes:'' }; return STATE.days[dayId] }
 
   function renderDay(day){
     const dayState = ensureDayState(day.id);
@@ -274,66 +280,58 @@
     const totalSets = day.items.reduce((a,it)=>a+it.sets,0);
     sum.insertAdjacentHTML('beforeend', `<div class="chip">Sets done: <b>${doneCount}/${totalSets}</b></div>`);
 
-    // Notes panel values
     el('#rpe').value = dayState.rpe ?? '';
     el('#mood').value = dayState.mood ?? '';
     el('#notes').value = dayState.notes ?? '';
 
-    // Exercises
     const list = el('#exerciseList'); list.innerHTML = '';
     day.items.forEach((it, idx)=>{
       const tpl = el('#exerciseTmpl').content.cloneNode(true);
-      const card = tpl.querySelector('.exercise');
-      card.dataset.key = idx;
+      const card = tpl.querySelector('.exercise'); card.dataset.key = idx;
       tpl.querySelector('.ex-name').textContent = it.name;
       tpl.querySelector('.ex-prescription').textContent = `${it.sets} × ${it.reps}`;
       tpl.querySelector('.ex-type').textContent = it.type;
 
+      // sets
       const setsWrap = tpl.querySelector('.sets');
       const st = dayState.setsDone[idx] = dayState.setsDone[idx] || Array(it.sets).fill(false);
       for(let s=0; s<it.sets; s++){
-        const b = document.createElement('button');
-        b.className = 'set' + (st[s] ? ' done' : '');
-        b.textContent = `Set ${s+1}`;
-        b.addEventListener('click',()=>{
-          st[s] = !st[s]; b.classList.toggle('done', st[s]);
-          saveState(STATE); updateSummary(day)
-        })
+        const b = document.createElement('button'); b.className = 'set' + (st[s] ? ' done' : ''); b.textContent = `Set ${s+1}`;
+        b.addEventListener('click',()=>{ st[s] = !st[s]; b.classList.toggle('done', st[s]); saveState(STATE); updateSummary(day) });
         setsWrap.appendChild(b)
       }
 
       // Load & Result
-      const loadInput = tpl.querySelector('.ex-load');
-      loadInput.value = dayState.loads[idx] ?? '';
+      const loadInput = tpl.querySelector('.ex-load'); loadInput.value = dayState.loads[idx] ?? '';
       loadInput.addEventListener('change', ()=>{ dayState.loads[idx] = Number(loadInput.value)||''; saveState(STATE) })
-      const resInput = tpl.querySelector('.ex-result');
-      resInput.value = dayState.results[idx] ?? '';
+      const resInput = tpl.querySelector('.ex-result'); resInput.value = dayState.results[idx] ?? '';
       resInput.addEventListener('change', ()=>{ dayState.results[idx] = resInput.value; saveState(STATE) })
 
-      // GIF handling
-      const gifInput = tpl.querySelector('.ex-gifurl');
-      gifInput.value = dayState.gif[idx] ?? '';
-      const gifWrap = tpl.querySelector('.gif');
-      const gifImg = gifWrap.querySelector('img');
-      const gifLink = gifWrap.querySelector('.gif-link');
-      const applyGif = (url)=>{
-        if(url && /^(https?:)?\/\//.test(url)){
-          gifWrap.style.display='flex'; gifImg.src = url; gifImg.alt = it.name + ' demo'; gifLink.href = url;
-        }else{ gifWrap.style.display='none'; gifImg.removeAttribute('src'); gifLink.removeAttribute('href') }
-      }
-      applyGif(gifInput.value);
-      gifInput.addEventListener('change', ()=>{ dayState.gif[idx] = gifInput.value; applyGif(gifInput.value); saveState(STATE) })
+      // Demo links / thumbnails
+      const guideA = tpl.querySelector('.ex-guide');
+      const videoA = tpl.querySelector('.ex-video');
+      const thumb = tpl.querySelector('.demo-thumb');
 
-      // Timer
-      const timerEl = tpl.querySelector('.timer');
-      const startBtn = timerEl.querySelector('.t-start');
-      const stopBtn = timerEl.querySelector('.t-stop');
-      const readout = timerEl.querySelector('.t-readout');
-      timerEl.dataset.seconds = 0; readout.textContent = '00:00';
-      let tId=null, tSec=0;
-      function tick(){ tSec++; readout.textContent = fmtTime(tSec) }
-      startBtn.addEventListener('click', ()=>{ if(tId) return; tId = setInterval(tick,1000) })
-      stopBtn.addEventListener('click', ()=>{ clearInterval(tId); tId=null })
+      const custom = dayState.gif[idx] ?? '';
+      const d = DEMOS[it.name] || {};
+
+      function applyDemo(url){
+        const yt = (u)=>{ try{ const url=new URL(u); if(url.hostname==='youtu.be') return url.pathname.slice(1); return url.searchParams.get('v') }catch{ return '' } };
+        if(url){
+          if(/youtube\.com|youtu\.be/.test(url)){
+            const id = yt(url); if(id){ thumb.src=`https://i.ytimg.com/vi/${id}/hqdefault.jpg`; } videoA.href=url; guideA.href=d.guide||url; return }
+          thumb.src=url; guideA.href=url; videoA.href=d.video||'#'; return;
+        }
+        // fallback
+        guideA.href = d.guide || '#';
+        videoA.href = d.video || '#';
+        if(d.video){ const id = yt(d.video); if(id){ thumb.src=`https://i.ytimg.com/vi/${id}/hqdefault.jpg`; } }
+      }
+      applyDemo(custom);
+
+      const gifInput = tpl.querySelector('.ex-gifurl');
+      gifInput.value = custom;
+      gifInput.addEventListener('change', ()=>{ dayState.gif[idx] = gifInput.value; applyDemo(gifInput.value); saveState(STATE) })
 
       list.appendChild(tpl)
     })
@@ -345,8 +343,7 @@
     const dayState = ensureDayState(day.id);
     const doneCount = Object.values(dayState.setsDone).reduce((a,arr)=>a+(arr?.filter(Boolean).length||0),0);
     const totalSets = day.items.reduce((a,it)=>a+it.sets,0);
-    const chips = el('#summary');
-    chips.children[1].innerHTML = `Sets done: <b>${doneCount}/${totalSets}</b>`;
+    const chips = el('#summary'); chips.children[1].innerHTML = `Sets done: <b>${doneCount}/${totalSets}</b>`;
   }
 
   // Notes persistence
@@ -355,35 +352,17 @@
   el('#notes').addEventListener('change', ()=>{ const d=PLAN.days[currentIndex]; ensureDayState(d.id).notes = el('#notes').value; saveState(STATE) })
 
   // Reset / Export / Import
-  el('#resetDayBtn').addEventListener('click', ()=>{
-    const d=PLAN.days[currentIndex]; STATE.days[d.id] = { setsDone:{}, loads:{}, results:{}, gif:{}, rpe:null, mood:'', notes:'' }; saveState(STATE); renderDay(d)
-  })
-  el('#exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify(STATE,null,2)], {type:'application/json'});
-    const a = Object.assign(document.createElement('a'), { href:URL.createObjectURL(blob), download:'workout-progress.json' });
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
-  })
-  el('#importBtn').addEventListener('click', ()=>{
-    const inp = Object.assign(document.createElement('input'), {type:'file', accept:'application/json'});
-    inp.onchange = e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ STATE=JSON.parse(r.result); saveState(STATE); selectDay(currentIndex) }catch{ alert('Invalid JSON') } }; r.readAsText(f) };
-    inp.click();
-  })
+  el('#resetDayBtn').addEventListener('click', ()=>{ const d=PLAN.days[currentIndex]; STATE.days[d.id] = { setsDone:{}, loads:{}, results:{}, gif:{}, rpe:null, mood:'', notes:'' }; saveState(STATE); renderDay(d) })
+  el('#exportBtn').addEventListener('click', ()=>{ const blob = new Blob([JSON.stringify(STATE,null,2)], {type:'application/json'}); const a = Object.assign(document.createElement('a'), { href:URL.createObjectURL(blob), download:'workout-progress.json' }); document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href) })
+  el('#importBtn').addEventListener('click', ()=>{ const inp = Object.assign(document.createElement('input'), {type:'file', accept:'application/json'}); inp.onchange = e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ STATE=JSON.parse(r.result); saveState(STATE); selectDay(currentIndex) }catch{ alert('Invalid JSON') } }; r.readAsText(f) }; inp.click(); })
 
   // Search
   const search = el('#search');
-  function applyFilter(){
-    const q = search.value.trim().toLowerCase();
-    els('.exercise', el('#exerciseList')).forEach(ex=>{
-      const name = el('.ex-name', ex).textContent.toLowerCase();
-      ex.style.display = name.includes(q) ? '' : 'none';
-    })
-  }
+  function applyFilter(){ const q = search.value.trim().toLowerCase(); els('.exercise', el('#exerciseList')).forEach(ex=>{ const name = el('.ex-name', ex).textContent.toLowerCase(); ex.style.display = name.includes(q) ? '' : 'none'; }) }
   search.addEventListener('input', applyFilter);
   window.addEventListener('keydown', (e)=>{ if(e.key === '/') { e.preventDefault(); search.focus() } })
 
-  // Start on suggested day (based on weekday), default Day 1 for weekend
-  const today = new Date().getDay(); // 0 Sun…6 Sat
-  const startIdx = [1,2,3,4,5,0,0][today] || 0; // Mon->Day2, Tue->3 etc? We'll start at Day 1 on Mon for simplicity
+  // Start on Day 1 by default
   selectDay(0);
   </script>
 </body>
