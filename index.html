@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workout Planner</title>
+  <meta name="description" content="Interactive weekly workout planner with timers, set tracking, and progress saved to your browser.">
+  <style>
+    :root{
+      --bg:#0b0d10;--panel:#13161b;--muted:#8a93a4;--text:#e9edf5;--pri:#6ea8fe;--acc:#7cf2c6;--warn:#ffb86b;--danger:#ff6b6b;
+      --card:#171b22;--chip:#212734;--ring:rgba(110,168,254,.35);--shadow:0 10px 30px rgba(0,0,0,.45)
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b0d10, #0e1116 40%, #0b0d10);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    a{color:var(--pri);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:980px;margin:0 auto;padding:20px}
+    header{position:sticky;top:0;background:rgba(11,13,16,.8);backdrop-filter:saturate(140%) blur(10px);z-index:20;border-bottom:1px solid #1e232c}
+    .head{display:flex;gap:14px;align-items:center;padding:12px 20px}
+    .logo{display:flex;gap:10px;align-items:center}
+    .logo i{width:36px;height:36px;border-radius:10px;background:radial-gradient(circle at 30% 30%,var(--pri),transparent 45%),radial-gradient(circle at 70% 70%,var(--acc),transparent 40%),linear-gradient(135deg,#1b2330,#0e141e);box-shadow:inset 0 0 0 1px #263042, var(--shadow)}
+    h1{font-size:18px;margin:0}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{border:1px solid #263042;background:#10141b;color:var(--text);padding:8px 12px;border-radius:12px;cursor:pointer}
+    .tab.active{border-color:var(--pri);box-shadow:0 0 0 3px var(--ring)}
+    main{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+    @media (max-width:900px){main{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid #202634;border-radius:16px;box-shadow:var(--shadow)}
+    .card .hd{padding:14px 16px;border-bottom:1px solid #202634;display:flex;gap:8px;align-items:center;justify-content:space-between}
+    .card .bd{padding:16px}
+    .muted{color:var(--muted)}
+
+    .list{display:flex;flex-direction:column;gap:10px}
+    .exercise{background:linear-gradient(180deg,#141a22,#11161e);border:1px solid #222a36;border-radius:14px;padding:12px}
+    .exercise h4{margin:0 0 6px;font-size:15px}
+    .ex-meta{display:flex;gap:10px;flex-wrap:wrap}
+    .chip{background:var(--chip);color:#d5dbea;border:1px solid #2a3240;border-radius:999px;padding:6px 10px;font-size:12px}
+
+    .sets{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .set{min-width:42px;display:flex;align-items:center;justify-content:center;border:1px solid #2a3345;border-radius:10px;height:36px;padding:0 10px;cursor:pointer;user-select:none;background:#0f141c}
+    .set.done{background:rgba(124,242,198,.12);border-color:#2d4a3e}
+    .set.done::after{content:'✓';margin-left:6px;color:var(--acc)}
+
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .row > *{flex:1}
+    input[type="number"], input[type="text"], textarea{width:100%;background:#0d1117;border:1px solid #273142;border-radius:10px;color:var(--text);padding:10px}
+    textarea{min-height:70px}
+
+    button{background:linear-gradient(180deg,#1c2432,#141a24);border:1px solid #2a3446;color:#e7ecf8;padding:10px 12px;border-radius:12px;cursor:pointer}
+    button:hover{filter:brightness(1.08)}
+    .btn-ghost{background:transparent;border-color:#2a3345}
+    .btn-pri{border-color:#35507c;background:linear-gradient(180deg,#20324d,#18263c)}
+
+    .stack{display:flex;flex-direction:column;gap:12px}
+    .grid{display:grid;gap:12px}
+    .two{grid-template-columns:1fr 1fr}
+    @media (max-width:680px){.two{grid-template-columns:1fr}}
+
+    .timer{display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums}
+    .timer b{font-size:20px}
+    .gif{display:flex;gap:10px;align-items:center}
+    .gif img{width:76px;height:76px;border-radius:10px;object-fit:cover;border:1px solid #273142}
+
+    .footer{margin-top:20px;color:var(--muted);font-size:12px}
+    .notice{padding:12px;border:1px dashed #2b364a;border-radius:12px;background:#0e141c;margin-top:10px}
+    .kbd{padding:.2em .45em;border:1px solid #2a3446;border-bottom-width:2px;border-radius:6px;background:#0d1117}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="head wrap">
+      <div class="logo"><i></i><h1>Workout Planner</h1></div>
+      <div class="tabs" id="dayTabs" aria-label="Week Day Tabs"></div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <main>
+      <section class="card" id="dayPanel" aria-live="polite">
+        <div class="hd"><div class="row" style="justify-content:space-between;width:100%"><strong id="dayTitle">Day</strong>
+          <div class="row" style="flex:0 0 auto">
+            <button class="btn-ghost" id="resetDayBtn" title="Reset completed sets for this day">Reset Day</button>
+            <button class="btn-pri" id="exportBtn" title="Export your progress as JSON">Export</button>
+            <button class="btn-ghost" id="importBtn" title="Import progress JSON">Import</button>
+          </div>
+        </div></div>
+        <div class="bd">
+          <div id="summary" class="stack"></div>
+          <h3>Warm‑Up</h3>
+          <p id="warmup" class="muted"></p>
+
+          <h3>Exercises</h3>
+          <div id="exerciseList" class="list"></div>
+
+          <div id="finisherWrap" style="margin-top:16px">
+            <h3>Finisher</h3>
+            <p id="finisher" class="muted"></p>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="hd"><strong>Notes & Tools</strong></div>
+        <div class="bd stack">
+          <div class="grid two">
+            <div>
+              <label class="muted">Target session RPE (effort 1–10)</label>
+              <input type="number" id="rpe" min="1" max="10" step="1" />
+            </div>
+            <div>
+              <label class="muted">Session mood</label>
+              <input type="text" id="mood" placeholder="Focused, tired, great pump…" />
+            </div>
+          </div>
+          <div>
+            <label class="muted">General notes</label>
+            <textarea id="notes" placeholder="Form cues, wins, next‑time tweaks…"></textarea>
+          </div>
+          <div class="notice">
+            <b>Tip:</b> Click a set to mark it done. Use the timer on time‑based moves (e.g., Plank). Progress auto‑saves to your browser (localStorage). Press <span class="kbd">/</span> to quick‑search moves.
+          </div>
+          <div id="searchWrap">
+            <label class="muted">Quick search</label>
+            <input id="search" type="text" placeholder="Type to filter exercises… ( / to focus )" />
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <p class="footer">Built for GitHub Pages. Single file, no build tools. Copy this file into a repo and enable Pages. — v1.0</p>
+  </div>
+
+  <template id="exerciseTmpl">
+    <div class="exercise" data-key="">
+      <div class="row" style="justify-content:space-between">
+        <h4 class="ex-name"></h4>
+        <div class="ex-meta">
+          <span class="chip ex-prescription"></span>
+          <span class="chip ex-type"></span>
+        </div>
+      </div>
+      <div class="gif" style="display:none">
+        <img alt="Exercise demo GIF">
+        <a class="gif-link" target="_blank" rel="noopener">Open GIF</a>
+      </div>
+      <div class="sets"></div>
+      <div class="grid two" style="margin-top:10px">
+        <div>
+          <label class="muted">Load (lbs per hand)</label>
+          <input type="number" class="ex-load" min="0" step="1" placeholder="e.g., 25">
+        </div>
+        <div>
+          <label class="muted">Your reps/time</label>
+          <input type="text" class="ex-result" placeholder="e.g., 10/10/9 or :30/:28/:25">
+        </div>
+      </div>
+      <div style="margin-top:10px" class="grid two">
+        <div>
+          <label class="muted">GIF URL (optional)</label>
+          <input type="text" class="ex-gifurl" placeholder="Paste a GIF/MP4 link">
+        </div>
+        <div class="timer" data-seconds="0">
+          <button class="btn-ghost t-start">Start</button>
+          <button class="btn-ghost t-stop">Stop</button>
+          <b class="t-readout">00:00</b>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+  // ------ DATA ------
+  const PLAN = {
+    meta:{ updated:"2025-04-01", author:"You" },
+    days:[
+      {id:1, title:"Day 1 · Full‑Body Strength + Cardio",
+       warmup:"5 min brisk walk or easy elliptical, then dynamic stretches (arm circles, hip swings, leg swings).",
+       finisher:"5 min moderate cardio (incline walk or easy elliptical).",
+       items:[
+         {name:"Dumbbell Bench Press", sets:3, reps:"10", type:"strength"},
+         {name:"Goblet Squat (Dumbbell Squat)", sets:3, reps:"10", type:"strength"},
+         {name:"One‑Arm Dumbbell Row", sets:3, reps:"10 each arm", type:"strength"},
+         {name:"Dumbbell Shoulder Press", sets:3, reps:"10", type:"strength"},
+         {name:"Plank", sets:3, reps:"20–30 sec", type:"time"}
+       ]},
+      {id:2, title:"Day 2 · Cardio & Core (Active Recovery)",
+       warmup:"3–5 min easy pace to get blood flowing.",
+       finisher:"Optional: 5 min light cardio or full‑body stretch.",
+       items:[
+         {name:"Cardio (Treadmill/Elliptical)", sets:1, reps:"20 min", type:"time"},
+         {name:"Bird‑Dog", sets:3, reps:"10/side", type:"core"},
+         {name:"Dead Bug", sets:3, reps:"10/side", type:"core"},
+         {name:"Glute Bridge", sets:3, reps:"15", type:"core"}
+       ]},
+      {id:3, title:"Day 3 · Upper Body (Back & Biceps)",
+       warmup:"5 min cardio + arm circles, shoulder stretches.",
+       finisher:"Elliptical intervals: 5 min (30s fast / 30s easy).",
+       items:[
+         {name:"Dumbbell Pullover", sets:3, reps:"10", type:"strength"},
+         {name:"One‑Arm Dumbbell Row", sets:3, reps:"10 each arm", type:"strength"},
+         {name:"Dumbbell Rear Delt Fly", sets:3, reps:"12", type:"strength"},
+         {name:"Dumbbell Bicep Curl", sets:3, reps:"12", type:"strength"}
+       ]},
+      {id:4, title:"Day 4 · Lower Body & Core",
+       warmup:"5 min brisk walk (or light jog) + leg swings, hip circles.",
+       finisher:"Side plank 20s/side or standard plank; light stretching.",
+       items:[
+         {name:"Dumbbell Goblet Squat", sets:3, reps:"10", type:"strength"},
+         {name:"Dumbbell Romanian Deadlift (RDL)", sets:3, reps:"10", type:"strength"},
+         {name:"Optional: Dumbbell Reverse Lunge", sets:3, reps:"8 each leg", type:"strength"},
+         {name:"Calf Raises", sets:3, reps:"15", type:"strength"},
+         {name:"Russian Twist", sets:3, reps:"12 each side", type:"core"}
+       ]},
+      {id:5, title:"Day 5 · Full‑Body Conditioning Circuit",
+       warmup:"5 min cardio + dynamic stretches.",
+       finisher:"Cool down 5–10 min walk, then stretch all major groups.",
+       items:[
+         {name:"Incline Dumbbell Bench Press", sets:3, reps:"10", type:"circuit"},
+         {name:"Dumbbell Step‑Up", sets:3, reps:"8 each leg", type:"circuit"},
+         {name:"Dumbbell Thruster", sets:3, reps:"10", type:"circuit"},
+         {name:"Dumbbell Woodchop", sets:3, reps:"10 each side", type:"circuit"}
+       ]},
+      {id:6, title:"Day 6 · Rest", warmup:"—", finisher:"Light stretch or walk.", items:[]},
+      {id:7, title:"Day 7 · Active Recovery", warmup:"Light activity like walking or yoga.", finisher:"—", items:[]}
+    ]
+  };
+
+  // ------ STORAGE ------
+  const KEY = 'workout-progress-v1';
+  const loadState = ()=>{
+    try{ return JSON.parse(localStorage.getItem(KEY)) || { days:{} } } catch{ return {days:{}} }
+  }
+  const saveState = (s)=>{ localStorage.setItem(KEY, JSON.stringify(s)) }
+  let STATE = loadState();
+
+  // ------ UTIL ------
+  const el = (sel, root=document)=>root.querySelector(sel);
+  const els = (sel, root=document)=>[...root.querySelectorAll(sel)];
+  const fmtTime = (sec)=>{
+    sec=Math.max(0,sec|0); let m = Math.floor(sec/60), s = sec%60; return String(m).padStart(2,'0')+":"+String(s).padStart(2,'0')
+  }
+
+  // ------ UI INIT ------
+  const tabs = el('#dayTabs');
+  PLAN.days.forEach((d, i)=>{
+    const b = document.createElement('button');
+    b.className='tab'; b.textContent = `Day ${d.id}`; b.title=d.title; b.addEventListener('click',()=>selectDay(i));
+    tabs.appendChild(b);
+  });
+
+  let currentIndex = 0, timers = new Map();
+  function selectDay(i){
+    currentIndex = i; els('.tab', tabs).forEach((t,idx)=>t.classList.toggle('active', idx===i));
+    renderDay(PLAN.days[i]);
+  }
+
+  function ensureDayState(dayId){
+    STATE.days[dayId] = STATE.days[dayId] || { setsDone:{}, loads:{}, results:{}, gif:{}, rpe:null, mood:'', notes:'' };
+    return STATE.days[dayId]
+  }
+
+  function renderDay(day){
+    const dayState = ensureDayState(day.id);
+    el('#dayTitle').textContent = day.title;
+    el('#warmup').textContent = day.warmup;
+    el('#finisher').textContent = day.finisher;
+
+    // Summary
+    const sum = el('#summary'); sum.innerHTML = '';
+    sum.insertAdjacentHTML('beforeend', `<div class="chip">Exercises: <b>${day.items.length}</b></div>`);
+    const doneCount = Object.values(dayState.setsDone).reduce((a,arr)=>a+(arr?.filter(Boolean).length||0),0);
+    const totalSets = day.items.reduce((a,it)=>a+it.sets,0);
+    sum.insertAdjacentHTML('beforeend', `<div class="chip">Sets done: <b>${doneCount}/${totalSets}</b></div>`);
+
+    // Notes panel values
+    el('#rpe').value = dayState.rpe ?? '';
+    el('#mood').value = dayState.mood ?? '';
+    el('#notes').value = dayState.notes ?? '';
+
+    // Exercises
+    const list = el('#exerciseList'); list.innerHTML = '';
+    day.items.forEach((it, idx)=>{
+      const tpl = el('#exerciseTmpl').content.cloneNode(true);
+      const card = tpl.querySelector('.exercise');
+      card.dataset.key = idx;
+      tpl.querySelector('.ex-name').textContent = it.name;
+      tpl.querySelector('.ex-prescription').textContent = `${it.sets} × ${it.reps}`;
+      tpl.querySelector('.ex-type').textContent = it.type;
+
+      const setsWrap = tpl.querySelector('.sets');
+      const st = dayState.setsDone[idx] = dayState.setsDone[idx] || Array(it.sets).fill(false);
+      for(let s=0; s<it.sets; s++){
+        const b = document.createElement('button');
+        b.className = 'set' + (st[s] ? ' done' : '');
+        b.textContent = `Set ${s+1}`;
+        b.addEventListener('click',()=>{
+          st[s] = !st[s]; b.classList.toggle('done', st[s]);
+          saveState(STATE); updateSummary(day)
+        })
+        setsWrap.appendChild(b)
+      }
+
+      // Load & Result
+      const loadInput = tpl.querySelector('.ex-load');
+      loadInput.value = dayState.loads[idx] ?? '';
+      loadInput.addEventListener('change', ()=>{ dayState.loads[idx] = Number(loadInput.value)||''; saveState(STATE) })
+      const resInput = tpl.querySelector('.ex-result');
+      resInput.value = dayState.results[idx] ?? '';
+      resInput.addEventListener('change', ()=>{ dayState.results[idx] = resInput.value; saveState(STATE) })
+
+      // GIF handling
+      const gifInput = tpl.querySelector('.ex-gifurl');
+      gifInput.value = dayState.gif[idx] ?? '';
+      const gifWrap = tpl.querySelector('.gif');
+      const gifImg = gifWrap.querySelector('img');
+      const gifLink = gifWrap.querySelector('.gif-link');
+      const applyGif = (url)=>{
+        if(url && /^(https?:)?\/\//.test(url)){
+          gifWrap.style.display='flex'; gifImg.src = url; gifImg.alt = it.name + ' demo'; gifLink.href = url;
+        }else{ gifWrap.style.display='none'; gifImg.removeAttribute('src'); gifLink.removeAttribute('href') }
+      }
+      applyGif(gifInput.value);
+      gifInput.addEventListener('change', ()=>{ dayState.gif[idx] = gifInput.value; applyGif(gifInput.value); saveState(STATE) })
+
+      // Timer
+      const timerEl = tpl.querySelector('.timer');
+      const startBtn = timerEl.querySelector('.t-start');
+      const stopBtn = timerEl.querySelector('.t-stop');
+      const readout = timerEl.querySelector('.t-readout');
+      timerEl.dataset.seconds = 0; readout.textContent = '00:00';
+      let tId=null, tSec=0;
+      function tick(){ tSec++; readout.textContent = fmtTime(tSec) }
+      startBtn.addEventListener('click', ()=>{ if(tId) return; tId = setInterval(tick,1000) })
+      stopBtn.addEventListener('click', ()=>{ clearInterval(tId); tId=null })
+
+      list.appendChild(tpl)
+    })
+
+    updateSummary(day)
+  }
+
+  function updateSummary(day){
+    const dayState = ensureDayState(day.id);
+    const doneCount = Object.values(dayState.setsDone).reduce((a,arr)=>a+(arr?.filter(Boolean).length||0),0);
+    const totalSets = day.items.reduce((a,it)=>a+it.sets,0);
+    const chips = el('#summary');
+    chips.children[1].innerHTML = `Sets done: <b>${doneCount}/${totalSets}</b>`;
+  }
+
+  // Notes persistence
+  el('#rpe').addEventListener('change', ()=>{ const d=PLAN.days[currentIndex]; ensureDayState(d.id).rpe = Number(el('#rpe').value)||''; saveState(STATE) })
+  el('#mood').addEventListener('change', ()=>{ const d=PLAN.days[currentIndex]; ensureDayState(d.id).mood = el('#mood').value; saveState(STATE) })
+  el('#notes').addEventListener('change', ()=>{ const d=PLAN.days[currentIndex]; ensureDayState(d.id).notes = el('#notes').value; saveState(STATE) })
+
+  // Reset / Export / Import
+  el('#resetDayBtn').addEventListener('click', ()=>{
+    const d=PLAN.days[currentIndex]; STATE.days[d.id] = { setsDone:{}, loads:{}, results:{}, gif:{}, rpe:null, mood:'', notes:'' }; saveState(STATE); renderDay(d)
+  })
+  el('#exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(STATE,null,2)], {type:'application/json'});
+    const a = Object.assign(document.createElement('a'), { href:URL.createObjectURL(blob), download:'workout-progress.json' });
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
+  })
+  el('#importBtn').addEventListener('click', ()=>{
+    const inp = Object.assign(document.createElement('input'), {type:'file', accept:'application/json'});
+    inp.onchange = e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ STATE=JSON.parse(r.result); saveState(STATE); selectDay(currentIndex) }catch{ alert('Invalid JSON') } }; r.readAsText(f) };
+    inp.click();
+  })
+
+  // Search
+  const search = el('#search');
+  function applyFilter(){
+    const q = search.value.trim().toLowerCase();
+    els('.exercise', el('#exerciseList')).forEach(ex=>{
+      const name = el('.ex-name', ex).textContent.toLowerCase();
+      ex.style.display = name.includes(q) ? '' : 'none';
+    })
+  }
+  search.addEventListener('input', applyFilter);
+  window.addEventListener('keydown', (e)=>{ if(e.key === '/') { e.preventDefault(); search.focus() } })
+
+  // Start on suggested day (based on weekday), default Day 1 for weekend
+  const today = new Date().getDay(); // 0 Sun…6 Sat
+  const startIdx = [1,2,3,4,5,0,0][today] || 0; // Mon->Day2, Tue->3 etc? We'll start at Day 1 on Mon for simplicity
+  selectDay(0);
+  </script>
+</body>
+</html>
